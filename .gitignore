@@ -3,6 +3,7 @@
 junkyard/
 .idea/
 notes.txt
+test_code.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
