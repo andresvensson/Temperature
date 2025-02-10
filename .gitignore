@@ -3,6 +3,7 @@
 junkyard/
 .idea/
 notes.txt
+secret.py
 test_code.py
 
 # Byte-compiled / optimized / DLL files
