@@ -1,7 +1,10 @@
 #!/usr/bin/python
+import sys
 import time
 import board
 import adafruit_dht
+import datetime
+import timeit
 
 import os
 import logging
@@ -20,53 +23,58 @@ log_path = os.path.join(BASE_DIR, "log.log")
 class GetTemp:
     """Get local temperature and humidity status and store it to database"""
     def __init__(self) -> None:
+
         self.data = {}
+        self.loop = True
         # TODO
         # Lamp behaviour? Make it work
-        # NOT THIS? get new stats at start and for every last 3 minutes to even 15 minutes (ex 21:13, 21:14, 21:15)
         # THIS get values every 15th minute and retry until value is obtained
 
-        # get_temp
-        self.read_DHT22()
-        print(self.data)
-        #   validate <- add to self.read_DHT22
-        #
-        # sleep
-        #   store value
+        while self.loop:
+            start_runtime = timeit.default_timer()
+            # get_temp
+            self.read_DHT22()
+            # get dates for database
+            self.getdates()
+
+            #
+            # sleep
+            sleep_time = self.sleep()
+            # TODO
+            # if developing:
+            #     print(self.data)
+            #     break
+            print(self.data)
+
+            time.sleep(sleep_time)
+
+            #   store value
+            self.data['sql']['code_runtime'] = timeit.default_timer() - start_runtime
+
 
     def read_DHT22(self):
         # d = {}
         loop = True
         while loop:
-            logging.info("get temp")
+            logging.debug("get temp")
             d = {}
             try:
-                # Print the values to the serial port
-                #temperature_c = sensor.temperature
-                #temperature_f = temperature_c * (9 / 5) + 32
-                #humidity = sensor.humidity
-
                 d['source'] = "kitchen"
                 d['temperature'] = float(sensor.temperature)
                 d['humidity'] = float(sensor.humidity)
 
-                # fail validate
-                # d['humidity'] = d['humidity'] + 150
-
-                #print("Temp={0:0.1f}ºC, Temp={1:0.1f}ºF, Humidity={2:0.1f}%".format(temperature_c, temperature_f, humidity))
-                # for r in d:
-                #     print(r, d[r], type(r))
-
             except RuntimeError as error:
                 # Errors happen fairly often, DHT's are hard to read, just keep going
-                print(error.args[0])
+                msg = error.args[0]
+                print(msg)
+                logging.error(msg)
                 time.sleep(2.0)
                 continue
             except Exception as error:
+                logging.error(f"failed to read sensor: {error}")
                 sensor.exit()
                 raise error
 
-            #self.validate()
             time.sleep(3.0)
             if d:
                 loop = self.validate(d)
@@ -85,9 +93,45 @@ class GetTemp:
             return True
 
         else:
+            logging.info(f"got values: {d}")
             return False
 
+    def getdates(self):
+        ts = datetime.datetime.now()
+        d = {'time': ts, 'month': ts.month, 'year': ts.year, 'date': ts.date()}
 
+        self.data['sql'].update(d)
+
+    def sleep(self) -> float:
+        ts = datetime.datetime.now()
+
+        if ts.minute <= 15:
+            x = 15 - ts.minute
+        elif 15 < ts.minute <= 30:
+            x = 30 - ts.minute
+        elif 30 < ts.minute <= 45:
+            x = 45 - ts.minute
+        else:
+            x = 59 - ts.minute
+
+        eta = ts.replace(microsecond=0, second=0) + datetime.timedelta(minutes=x)
+        msg = f"sleep in {x} min, get new value at: {eta}"
+        self.data['sleep_msg'] = msg
+        logging.debug(msg)
+
+        #sec = (x * 60) - (60 - ts.second)
+
+
+        tminus = eta - ts
+        print("TS:", ts)
+        print("ETA:", eta)
+        print("eta - ts =", tminus)
+        sec = tminus.total_seconds()
+        print("tot sec:", sec)
+
+        print("seconds to sleep:", sec)
+        # TODO does not work returns a negative value (-1 day??)
+        return sec
 
 
 
