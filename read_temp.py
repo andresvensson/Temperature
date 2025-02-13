@@ -22,6 +22,7 @@ log_path = os.path.join(BASE_DIR, "log.log")
 
 class GetTemp:
     """Get local temperature and humidity status and store it to database"""
+
     def __init__(self) -> None:
 
         self.data = {}
@@ -50,7 +51,6 @@ class GetTemp:
 
             #   store value
             self.data['sql']['code_runtime'] = timeit.default_timer() - start_runtime
-
 
     def read_DHT22(self):
         # d = {}
@@ -107,36 +107,53 @@ class GetTemp:
 
         if ts.minute <= 15:
             x = 15 - ts.minute
+            y = 900 - (ts.second + ts.minute)
         elif 15 < ts.minute <= 30:
             x = 30 - ts.minute
+            y = 1800 - (ts.second + ts.minute)
         elif 30 < ts.minute <= 45:
             x = 45 - ts.minute
+            y = 2700 - (ts.second + ts.minute)
         else:
-            x = 59 - ts.minute
+            x = 60 - ts.minute
+            y = 3600 - (ts.second + ts.minute)
 
-        eta = ts.replace(microsecond=0, second=0) + datetime.timedelta(minutes=x)
-        msg = f"sleep in {x} min, get new value at: {eta}"
+        adjust_sec = 60 - ts.second
+        eta_min = ts + datetime.timedelta(minutes=x)
+
+        # THIS!
+        eta = eta_min.replace(second=0, microsecond=0)
+
+        #eta = ts + datetime.timedelta(minutes=x, seconds=y, microseconds=round(z))
+        #msg = f"sleep in {ts.replace(microsecond=0, second=0) + datetime.timedelta(minutes=x)} min, get new value at: {eta}"
+
+
+        # sec = (x * 60) - (60 - ts.second)
+
+        # is it !?!?
+        calc = eta - ts
+        sec = calc.total_seconds()
+
+        #dl = eta -
+
+        #tminus = eta - ts
+        #print("eta - ts =", tminus)
+        #sec = tminus.total_seconds() + adjust_sec
+        #sec = eta.total_seconds() + adjust_sec
+
+
+
+        print("TS:", ts)
+        print("ETA:", eta)
+        print("seconds to sleep:", sec)
+        print("min to sleep:", round(sec / 60))
+
+        msg = f"sleep in {round(sec / 60)} min, get new value at: {eta}"
         self.data['sleep_msg'] = msg
         logging.debug(msg)
 
-        #sec = (x * 60) - (60 - ts.second)
-
-
-        tminus = eta - ts
-        print("TS:", ts)
-        print("ETA:", eta)
-        print("eta - ts =", tminus)
-        sec = tminus.total_seconds()
-        print("tot sec:", sec)
-
-        print("seconds to sleep:", sec)
-        # TODO does not work returns a negative value (-1 day??)
+        # TODO does not work returns a negative value ( -code runtime), should be a easy fix
         return sec
-
-
-
-
-
 
 
 if __name__ == "__main__":
@@ -144,7 +161,7 @@ if __name__ == "__main__":
         logging.basicConfig(level=logging.DEBUG, filename=log_path, filemode="w",
                             format="%(asctime)s - %(levelname)s - %(message)s")
     else:
-        #TODO: change INFO -> WARNING
+        # TODO: change INFO -> WARNING
         logging.basicConfig(level=logging.WARNING, filename=log_path, filemode="w",
                             format="%(asctime)s - %(levelname)s - %(message)s")
     logging.info("read_temp.py stared")
