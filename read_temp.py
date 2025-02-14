@@ -9,10 +9,12 @@ import timeit
 import os
 import logging
 
+import secret
 import secret as s
 
 # CONFIG
-developing = s.settings()
+cfg = secret.settings()
+developing = cfg['dev']
 # Sensor data pin is connected to GPIO 4
 sensor = adafruit_dht.DHT22(board.D4)
 # log path and name
@@ -31,26 +33,36 @@ class GetTemp:
         # Lamp behaviour? Make it work
         # THIS get values every 15th minute and retry until value is obtained
 
+        # don´t save first time run to db
+        save_values = False
         while self.loop:
             start_runtime = timeit.default_timer()
             # get_temp
             self.read_DHT22()
             # get dates for database
             self.getdates()
+            self.data['sql']['code_runtime'] = timeit.default_timer() - start_runtime
 
-            #
-            # sleep
-            sleep_time = self.sleep()
             # TODO
             # if developing:
             #     print(self.data)
             #     break
-            print(self.data)
 
+            # TODO
+            # save to db, or not
+            # if it has an eta, save to db??
+
+            # do not save values first run
+            if save_values:
+                print("save to db")
+
+            # sleep
+            sleep_time = self.sleep()
+            print(self.data)  # <-- TODO, remove pls
             time.sleep(sleep_time)
+            save_values = True
 
             #   store value
-            self.data['sql']['code_runtime'] = timeit.default_timer() - start_runtime
 
     def read_DHT22(self):
         # d = {}
@@ -59,7 +71,7 @@ class GetTemp:
             logging.debug("get temp")
             d = {}
             try:
-                d['source'] = "kitchen"
+                d['source'] = cfg['name']
                 d['temperature'] = float(sensor.temperature)
                 d['humidity'] = float(sensor.humidity)
 
@@ -104,56 +116,41 @@ class GetTemp:
 
     def sleep(self) -> float:
         ts = datetime.datetime.now()
+        eta = self.get_eta()
 
-        if ts.minute <= 15:
-            x = 15 - ts.minute
-            y = 900 - (ts.second + ts.minute)
-        elif 15 < ts.minute <= 30:
-            x = 30 - ts.minute
-            y = 1800 - (ts.second + ts.minute)
-        elif 30 < ts.minute <= 45:
-            x = 45 - ts.minute
-            y = 2700 - (ts.second + ts.minute)
-        else:
-            x = 60 - ts.minute
-            y = 3600 - (ts.second + ts.minute)
+        while eta < ts:
+            # whole minute has to pass to get the new eta
+            logging.debug("wait 10 sec to set next eta..")
+            # print("wait 10 sec. TS:", ts, "ETA:", eta)
+            time.sleep(10)
+            ts = datetime.datetime.now()
+            eta = self.get_eta()
 
-        adjust_sec = 60 - ts.second
-        eta_min = ts + datetime.timedelta(minutes=x)
-
-        # THIS!
-        eta = eta_min.replace(second=0, microsecond=0)
-
-        #eta = ts + datetime.timedelta(minutes=x, seconds=y, microseconds=round(z))
-        #msg = f"sleep in {ts.replace(microsecond=0, second=0) + datetime.timedelta(minutes=x)} min, get new value at: {eta}"
-
-
-        # sec = (x * 60) - (60 - ts.second)
-
-        # is it !?!?
         calc = eta - ts
         sec = calc.total_seconds()
-
-        #dl = eta -
-
-        #tminus = eta - ts
-        #print("eta - ts =", tminus)
-        #sec = tminus.total_seconds() + adjust_sec
-        #sec = eta.total_seconds() + adjust_sec
-
-
-
-        print("TS:", ts)
-        print("ETA:", eta)
-        print("seconds to sleep:", sec)
-        print("min to sleep:", round(sec / 60))
 
         msg = f"sleep in {round(sec / 60)} min, get new value at: {eta}"
         self.data['sleep_msg'] = msg
         logging.debug(msg)
 
-        # TODO does not work returns a negative value ( -code runtime), should be a easy fix
         return sec
+
+    def get_eta(self) -> datetime:
+        ts = datetime.datetime.now()
+
+        if ts.minute <= 15:
+            x = 15 - ts.minute
+        elif 15 < ts.minute <= 30:
+            x = 30 - ts.minute
+        elif 30 < ts.minute <= 45:
+            x = 45 - ts.minute
+        else:
+            x = 60 - ts.minute
+
+        eta_min = ts + datetime.timedelta(minutes=x)
+        eta = eta_min.replace(second=0, microsecond=0)
+
+        return eta
 
 
 if __name__ == "__main__":
@@ -161,7 +158,7 @@ if __name__ == "__main__":
         logging.basicConfig(level=logging.DEBUG, filename=log_path, filemode="w",
                             format="%(asctime)s - %(levelname)s - %(message)s")
     else:
-        # TODO: change INFO -> WARNING
+        # TODO: change INFO -> WARNING Make filename for each week
         logging.basicConfig(level=logging.WARNING, filename=log_path, filemode="w",
                             format="%(asctime)s - %(levelname)s - %(message)s")
     logging.info("read_temp.py stared")
