@@ -3,6 +3,7 @@
 junkyard/
 logs/
 .idea/
+*.service
 notes.txt
 secret.py
 test_code.py
