@@ -11,13 +11,19 @@ import os
 import logging
 
 import secret
-import secret as s
+
 
 # CONFIG
 cfg = secret.settings()
+if cfg['got_lamp']:
+    import RPi.GPIO as GPIO
+    GPIO.setmode(GPIO.BCM)
+    GPIO.setwarnings(False)
+    GPIO.setup(cfg['lamp_pin'], GPIO.OUT)
+# developer mode
 developing = cfg['dev']
 # Sensor data pin is connected to GPIO 4
-sensor = adafruit_dht.DHT22(board.D4)
+sensor = adafruit_dht.DHT22(board.D4, use_pulseio=False)
 # log path and name
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 tstamp = datetime.datetime.now()
@@ -41,6 +47,8 @@ class GetTemp:
         save_values = False
         while self.loop:
             start_runtime = timeit.default_timer()
+            if cfg['got_lamp']:
+                GPIO.output(cfg['lamp_pin'], GPIO.HIGH)
             # get_temp
             self.read_DHT22()
             # get dates for database
@@ -59,13 +67,16 @@ class GetTemp:
                 print("-------------------dev mode-------------------")
                 for d in self.data['sql']:
                     print(d, ":", self.data['sql'][d])
-                print("msg:", self.data['sleep_msg'])
                 print("exit code")
                 print("----------------------------------------------")
+                if cfg['got_lamp']:
+                    GPIO.output(cfg['lamp_pin'], GPIO.LOW)
                 logging.info("end of program for dev mode")
                 break
 
             sleep_time = self.sleep()
+            if cfg['got_lamp']:
+                GPIO.output(cfg['lamp_pin'], GPIO.LOW)
             time.sleep(sleep_time)
             save_values = True
 
