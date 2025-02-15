@@ -9,7 +9,6 @@ import pymysql
 
 import os
 import logging
-
 import secret
 
 
