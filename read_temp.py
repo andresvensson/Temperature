@@ -13,10 +13,15 @@ import secret
 
 # CONFIG
 cfg = secret.settings()
+if cfg['got_lamp']:
+    import RPi.GPIO as GPIO
+    GPIO.setmode(GPIO.BCM)
+    GPIO.setwarnings(False)
+    GPIO.setup(cfg['lamp_pin'], GPIO.OUT)
 # developer mode
 developing = cfg['dev']
 # Sensor data pin is connected to GPIO 4
-sensor = adafruit_dht.DHT22(board.D4)
+sensor = adafruit_dht.DHT22(board.D4, use_pulseio=False)
 # log path and name
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 tstamp = datetime.datetime.now()
@@ -33,12 +38,15 @@ class GetTemp:
         self.data = {}
         self.loop = True
         # TODO
-        # Lamp behaviour? Make it work?
-        # gets values every 15th minute and retry until value is obtained
+        # Lamp behaviour? Make it work
+        # get values every 15th minute and retry until value is obtained
 
+        # don´t save first time run to db
         save_values = False
         while self.loop:
             start_runtime = timeit.default_timer()
+            if cfg['got_lamp']:
+                GPIO.output(cfg['lamp_pin'], GPIO.HIGH)
             # get_temp
             self.read_DHT22()
             # get dates for database
@@ -59,10 +67,14 @@ class GetTemp:
                     print(d, ":", self.data['sql'][d])
                 print("exit code")
                 print("----------------------------------------------")
+                if cfg['got_lamp']:
+                    GPIO.output(cfg['lamp_pin'], GPIO.LOW)
                 logging.info("end of program for dev mode")
                 break
 
             sleep_time = self.sleep()
+            if cfg['got_lamp']:
+                GPIO.output(cfg['lamp_pin'], GPIO.LOW)
             time.sleep(sleep_time)
             save_values = True
 
@@ -97,6 +109,7 @@ class GetTemp:
                 loop = True
 
     def validate(self, d) -> bool:
+        # print("Validate", d)
 
         if d['humidity'] > 100 or d['humidity'] < 0:
             logging.warning(f"Got arbitrary humidity value: {d['humidity']}, get new values")
