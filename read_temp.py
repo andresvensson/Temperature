@@ -35,10 +35,9 @@ class GetTemp:
         self.data = {}
         self.loop = True
         # TODO
-        # Lamp behaviour? Make it work
-        # THIS get values every 15th minute and retry until value is obtained
+        # Lamp behaviour? Make it work?
+        # gets values every 15th minute and retry until value is obtained
 
-        # don´t save first time run to db
         save_values = False
         while self.loop:
             start_runtime = timeit.default_timer()
@@ -100,7 +99,6 @@ class GetTemp:
                 loop = True
 
     def validate(self, d) -> bool:
-        # print("Validate", d)
 
         if d['humidity'] > 100 or d['humidity'] < 0:
             logging.warning(f"Got arbitrary humidity value: {d['humidity']}, get new values")
