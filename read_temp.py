@@ -6,7 +6,6 @@ import adafruit_dht
 import datetime
 import timeit
 import pymysql
-
 import os
 import logging
 import secret
