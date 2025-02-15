@@ -1,6 +1,7 @@
 
 # Added by me
 junkyard/
+logs/
 .idea/
 notes.txt
 secret.py

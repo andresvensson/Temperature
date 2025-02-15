@@ -5,6 +5,7 @@ import board
 import adafruit_dht
 import datetime
 import timeit
+import pymysql
 
 import os
 import logging
@@ -19,7 +20,10 @@ developing = cfg['dev']
 sensor = adafruit_dht.DHT22(board.D4)
 # log path and name
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-log_path = os.path.join(BASE_DIR, "log.log")
+tstamp = datetime.datetime.now()
+dt = tstamp.date()
+filename = f"logs/log_{str(dt)}.txt"
+log_path = os.path.join(BASE_DIR, filename)
 
 
 class GetTemp:
@@ -43,26 +47,27 @@ class GetTemp:
             self.getdates()
             self.data['sql']['code_runtime'] = timeit.default_timer() - start_runtime
 
-            # TODO
-            # if developing:
-            #     print(self.data)
-            #     break
+            sleep_time = self.sleep()
 
-            # TODO
-            # save to db, or not
-            # if it has an eta, save to db??
-
-            # do not save values first run
+            # save to database (don´t save values at first run)
             if save_values:
-                print("save to db")
+                self.store_db()
+            else:
+                msg = f"Temp: {self.data['sql']['temperature']}, Humidity: {self.data['sql']['humidity']}, {self.data['sleep_msg']}"
+                print(msg)
 
             # sleep
-            sleep_time = self.sleep()
-            print(self.data)  # <-- TODO, remove pls
+            if developing:
+                print("-------------------dev mode-------------------")
+                for d in self.data['sql']:
+                    print(d, ":", self.data['sql'][d])
+                print("msg:", self.data['sleep_msg'])
+                print("exit code")
+                print("----------------------------------------------")
+                logging.info("end of program for dev mode")
+                break
             time.sleep(sleep_time)
             save_values = True
-
-            #   store value
 
     def read_DHT22(self):
         # d = {}
@@ -116,18 +121,13 @@ class GetTemp:
 
     def sleep(self) -> float:
         ts = datetime.datetime.now()
-        eta = self.get_eta()
+        eta, sec = self.get_eta()
 
         while eta < ts:
-            # whole minute has to pass to get the new eta
             logging.debug("wait 10 sec to set next eta..")
-            # print("wait 10 sec. TS:", ts, "ETA:", eta)
             time.sleep(10)
             ts = datetime.datetime.now()
-            eta = self.get_eta()
-
-        calc = eta - ts
-        sec = calc.total_seconds()
+            eta, sec = self.get_eta()
 
         msg = f"sleep in {round(sec / 60)} min, get new value at: {eta}"
         self.data['sleep_msg'] = msg
@@ -135,22 +135,102 @@ class GetTemp:
 
         return sec
 
-    def get_eta(self) -> datetime:
+    def get_eta(self):
         ts = datetime.datetime.now()
+        tot_sec = (ts.minute * 60) + ts.second
 
         if ts.minute <= 15:
             x = 15 - ts.minute
+            y = 900 - tot_sec
         elif 15 < ts.minute <= 30:
             x = 30 - ts.minute
+            y = 1800 - tot_sec
         elif 30 < ts.minute <= 45:
             x = 45 - ts.minute
+            y = 2700 - tot_sec
         else:
             x = 60 - ts.minute
+            y = 3600 - tot_sec
 
         eta_min = ts + datetime.timedelta(minutes=x)
         eta = eta_min.replace(second=0, microsecond=0)
 
-        return eta
+        return eta, y
+
+    # def sleep1(self) -> float:
+    #     # TODO remove this backup if not needed
+    #     ts = datetime.datetime.now()
+    #     eta = self.get_eta1()
+    #
+    #     while eta < ts:
+    #         # TODO make get_data in seconds instead of min. CaCalculate with sec and min.total sum?
+    #         # whole minute has to pass to get the new eta
+    #         logging.debug("wait 10 sec to set next eta..")
+    #         # print("wait 10 sec. TS:", ts, "ETA:", eta)
+    #         time.sleep(10)
+    #         ts = datetime.datetime.now()
+    #         eta = self.get_eta1()
+    #
+    #     calc = eta - ts
+    #     sec = calc.total_seconds()
+    #
+    #     msg = f"sleep in {round(sec / 60)} min, get new value at: {eta}"
+    #     self.data['sleep_msg'] = msg
+    #     logging.debug(msg)
+    #
+    #     return sec
+    #
+    # def get_eta1(self) -> datetime:
+    #     ts = datetime.datetime.now()
+    #
+    #     tot_sec = (ts.minute * 60) + ts.second + 1
+    #
+    #     if ts.minute <= 15:
+    #         x = 15 - ts.minute
+    #         y = 900 - tot_sec
+    #     elif 15 < ts.minute <= 30:
+    #         x = 30 - ts.minute
+    #         y = 1800 - tot_sec
+    #     elif 30 < ts.minute <= 45:
+    #         x = 45 - ts.minute
+    #         y = 2700 - tot_sec
+    #     else:
+    #         x = 60 - ts.minute
+    #         y = 3600 - tot_sec
+    #
+    #     eta_min = ts + datetime.timedelta(minutes=x)
+    #     eta = eta_min.replace(second=0, microsecond=0)
+    #
+    #     self.data['sleep'] = y
+    #
+    #     # print("TEST, wait tot sec:", y, "min:", (y / 60))
+    #
+    #     return eta
+
+    def store_db(self):
+        logging.debug("store to database")
+        try:
+            columns = []
+            values = []
+
+            for x in self.data['sql']:
+                columns.append(x)
+                values.append(self.data['sql'][x])
+
+            h, u, p, d = cfg['sql']
+            db = pymysql.connect(host=h, user=u, passwd=p, db=d)
+            cursor = db.cursor()
+            # create sql string
+            sql_query = 'INSERT INTO weather_kitchen (' + ', '.join(columns) + ') VALUES (' + (
+                    '%s, ' * (len(columns) - 1)) + '%s)'
+
+            cursor.execute(str(sql_query), tuple(values))
+            db.commit()
+            db.close()
+            logging.info("stored values to database")
+        except Exception as f:
+            msg = "could not save to remote db:\n{0}".format(f)
+            logging.exception(msg)
 
 
 if __name__ == "__main__":
