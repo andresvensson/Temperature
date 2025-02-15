@@ -15,15 +15,10 @@ import secret
 
 # CONFIG
 cfg = secret.settings()
-if cfg['got_lamp']:
-    import RPi.GPIO as GPIO
-    GPIO.setmode(GPIO.BCM)
-    GPIO.setwarnings(False)
-    GPIO.setup(cfg['lamp_pin'], GPIO.OUT)
 # developer mode
 developing = cfg['dev']
 # Sensor data pin is connected to GPIO 4
-sensor = adafruit_dht.DHT22(board.D4, use_pulseio=False)
+sensor = adafruit_dht.DHT22(board.D4)
 # log path and name
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 tstamp = datetime.datetime.now()
@@ -47,8 +42,6 @@ class GetTemp:
         save_values = False
         while self.loop:
             start_runtime = timeit.default_timer()
-            if cfg['got_lamp']:
-                GPIO.output(cfg['lamp_pin'], GPIO.HIGH)
             # get_temp
             self.read_DHT22()
             # get dates for database
@@ -69,14 +62,10 @@ class GetTemp:
                     print(d, ":", self.data['sql'][d])
                 print("exit code")
                 print("----------------------------------------------")
-                if cfg['got_lamp']:
-                    GPIO.output(cfg['lamp_pin'], GPIO.LOW)
                 logging.info("end of program for dev mode")
                 break
 
             sleep_time = self.sleep()
-            if cfg['got_lamp']:
-                GPIO.output(cfg['lamp_pin'], GPIO.LOW)
             time.sleep(sleep_time)
             save_values = True
 
@@ -167,56 +156,6 @@ class GetTemp:
         eta = eta_min.replace(second=0, microsecond=0)
 
         return eta, y
-
-    # def sleep1(self) -> float:
-    #     # TODO remove this backup if not needed
-    #     ts = datetime.datetime.now()
-    #     eta = self.get_eta1()
-    #
-    #     while eta < ts:
-    #         # TODO make get_data in seconds instead of min. CaCalculate with sec and min.total sum?
-    #         # whole minute has to pass to get the new eta
-    #         logging.debug("wait 10 sec to set next eta..")
-    #         # print("wait 10 sec. TS:", ts, "ETA:", eta)
-    #         time.sleep(10)
-    #         ts = datetime.datetime.now()
-    #         eta = self.get_eta1()
-    #
-    #     calc = eta - ts
-    #     sec = calc.total_seconds()
-    #
-    #     msg = f"sleep in {round(sec / 60)} min, get new value at: {eta}"
-    #     self.data['sleep_msg'] = msg
-    #     logging.debug(msg)
-    #
-    #     return sec
-    #
-    # def get_eta1(self) -> datetime:
-    #     ts = datetime.datetime.now()
-    #
-    #     tot_sec = (ts.minute * 60) + ts.second + 1
-    #
-    #     if ts.minute <= 15:
-    #         x = 15 - ts.minute
-    #         y = 900 - tot_sec
-    #     elif 15 < ts.minute <= 30:
-    #         x = 30 - ts.minute
-    #         y = 1800 - tot_sec
-    #     elif 30 < ts.minute <= 45:
-    #         x = 45 - ts.minute
-    #         y = 2700 - tot_sec
-    #     else:
-    #         x = 60 - ts.minute
-    #         y = 3600 - tot_sec
-    #
-    #     eta_min = ts + datetime.timedelta(minutes=x)
-    #     eta = eta_min.replace(second=0, microsecond=0)
-    #
-    #     self.data['sleep'] = y
-    #
-    #     # print("TEST, wait tot sec:", y, "min:", (y / 60))
-    #
-    #     return eta
 
     def store_db(self):
         logging.debug("store to database")
