@@ -47,13 +47,11 @@ class GetTemp:
             self.getdates()
             self.data['sql']['code_runtime'] = timeit.default_timer() - start_runtime
 
-            sleep_time = self.sleep()
-
             # save to database (don´t save values at first run)
             if save_values:
                 self.store_db()
             else:
-                msg = f"Temp: {self.data['sql']['temperature']}, Humidity: {self.data['sql']['humidity']}, {self.data['sleep_msg']}"
+                msg = f"Temp: {self.data['sql']['temperature']}, Humidity: {self.data['sql']['humidity']}"
                 print(msg)
 
             # sleep
@@ -66,6 +64,8 @@ class GetTemp:
                 print("----------------------------------------------")
                 logging.info("end of program for dev mode")
                 break
+
+            sleep_time = self.sleep()
             time.sleep(sleep_time)
             save_values = True
 
