@@ -12,6 +12,7 @@ import secret
 
 
 # CONFIG
+"""Make sure to add a secret file with settings"""
 cfg = secret.settings()
 if cfg['got_lamp']:
     import RPi.GPIO as GPIO
@@ -20,7 +21,7 @@ if cfg['got_lamp']:
     GPIO.setup(cfg['lamp_pin'], GPIO.OUT)
 # developer mode
 developing = cfg['dev']
-# Sensor data pin is connected to GPIO 4
+# Sensor data pin is connected to GPIO 4 TODO set correct pin
 sensor = adafruit_dht.DHT22(board.D4, use_pulseio=False)
 # log path and name
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -55,6 +56,7 @@ class GetTemp:
 
             # save to database (don´t save values at first run)
             if save_values:
+                # TODO add check to be sure there is values to be saved
                 self.store_db()
             else:
                 msg = f"Temp: {self.data['sql']['temperature']}, Humidity: {self.data['sql']['humidity']}"
@@ -79,7 +81,6 @@ class GetTemp:
             save_values = True
 
     def read_DHT22(self):
-        # d = {}
         loop = True
         while loop:
             logging.debug("get temp")
@@ -180,6 +181,7 @@ class GetTemp:
             db = pymysql.connect(host=h, user=u, passwd=p, db=d)
             cursor = db.cursor()
             # create sql string
+            # TODO change table name into variable
             sql_query = 'INSERT INTO weather_kitchen (' + ', '.join(columns) + ') VALUES (' + (
                     '%s, ' * (len(columns) - 1)) + '%s)'
 
@@ -197,7 +199,6 @@ if __name__ == "__main__":
         logging.basicConfig(level=logging.DEBUG, filename=log_path, filemode="w",
                             format="%(asctime)s - %(levelname)s - %(message)s")
     else:
-        # TODO: change INFO -> WARNING Make filename for each week
         logging.basicConfig(level=logging.WARNING, filename=log_path, filemode="w",
                             format="%(asctime)s - %(levelname)s - %(message)s")
     logging.info("read_temp.py stared")
